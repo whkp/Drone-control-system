@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: drone_control
+      MYSQL_USER: drone_user
+      MYSQL_PASSWORD: drone_pass
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - drone-network
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - drone-network
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: drone_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - drone-network
+
+  # Kafka 消息队列
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: drone_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - drone-network
+
+  # Kafka UI (可选，用于监控和管理)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: drone_kafka_ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - drone-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=drone_user
+      - DB_PASSWORD=drone_pass
+      - DB_NAME=drone_control
+      - REDIS_ADDR=redis:6379
+      - KAFKA_BROKERS=kafka:29092
+    depends_on:
+      - mysql
+      - redis
+      - kafka
+    networks:
+      - drone-network
+
+  # 用户服务
+  user-service:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.user-service
+    ports:
+      - "50051:50051"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=5432
+      - DB_USER=drone_user
+      - DB_PASSWORD=drone_pass
+      - DB_NAME=drone_control
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - drone-network
+
+  # 任务服务
+  task-service:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.task-service
+    ports:
+      - "50052:50052"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=5432
+      - DB_USER=drone_user
+      - DB_PASSWORD=drone_pass
+      - DB_NAME=drone_control
+      - REDIS_ADDR=redis:6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - drone-network
+
+  # 监控服务
+  monitor-service:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.monitor-service
+    ports:
+      - "50053:50053"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=5432
+      - DB_USER=drone_user
+      - DB_PASSWORD=drone_pass
+      - DB_NAME=drone_control
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - drone-network
+
+  # 无人机控制服务
+  drone-control:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.drone-control
+    ports:
+      - "50050:50050"  # WebSocket and HTTP API
+    environment:
+      - REDIS_ADDR=redis:6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    depends_on:
+      - redis
+    networks:
+      - drone-network
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployments/nginx.conf:/etc/nginx/nginx.conf
+      - ./deployments/ssl:/etc/nginx/ssl
+    depends_on:
+      - api-gateway
+    networks:
+      - drone-network
+
+volumes:
+  mysql_data:
+  redis_data:
+  kafka_data:
+
+networks:
+  drone-network:
+    driver: bridge
