@@ -1,0 +1,30 @@
+{
+  "api": {
+    "baseUrl": "http://localhost:8080",
+    "endpoints": {
+      "users": "/api/users",
+      "drones": "/api/drones",
+      "tasks": "/api/tasks",
+      "monitoring": "ws://localhost:8083/ws"
+    }
+  },
+  "websocket": {
+    "monitorService": "ws://localhost:8083/ws",
+    "droneControl": "ws://localhost:8082/ws",
+    "reconnectInterval": 3000
+  },
+  "ui": {
+    "refreshInterval": 5000,
+    "maxRetries": 3,
+    "theme": "default"
+  },
+  "version": "1.1.0-beta",
+  "environment": "development",
+  "features": {
+    "realTimeMonitoring": true,
+    "droneControl": true,
+    "taskManagement": true,
+    "userManagement": true,
+    "aiAssistant": true
+  }
+}

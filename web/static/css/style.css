@@ -1,0 +1,110 @@
+/* 自定义样式 */
+.drone-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.drone-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.drone-online { border-left-color: #10B981; }
+.drone-flying { border-left-color: #3B82F6; }
+.drone-offline { border-left-color: #EF4444; }
+.drone-maintenance { border-left-color: #F59E0B; }
+
+.alert-card {
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.status-online { background-color: #10B981; }
+.status-flying { background-color: #3B82F6; }
+.status-offline { background-color: #EF4444; }
+.status-maintenance { background-color: #F59E0B; }
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .grid-cols-1.md\:grid-cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    .grid-cols-1.md\:grid-cols-2.lg\:grid-cols-3 {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+}
+
+/* 表格响应式 */
+@media (max-width: 640px) {
+    table {
+        font-size: 0.875rem;
+    }
+    
+    .px-6 {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* 加载动画 */
+.loading-spinner {
+    border: 2px solid #f3f4f6;
+    border-top: 2px solid #3B82F6;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 图表容器 */
+#metricsChart {
+    max-height: 300px;
+}
+
+/* 实时数据流 */
+#realTimeData {
+    font-family: 'Courier New', monospace;
+}
+
+/* 按钮禁用状态 */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 自定义滚动条 */
+.max-h-96::-webkit-scrollbar {
+    width: 6px;
+}
+
+.max-h-96::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.max-h-96::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.max-h-96::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

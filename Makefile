@@ -13,6 +13,7 @@ USER_SERVICE_BINARY=user-service
 TASK_SERVICE_BINARY=task-service
 MONITOR_SERVICE_BINARY=monitor-service
 DRONE_CONTROL_BINARY=drone-control
+WEB_SERVER_BINARY=web-server
 
 # Build directory
 BUILD_DIR=build
@@ -31,6 +32,7 @@ build:
 	$(GOBUILD) -o $(BUILD_DIR)/$(TASK_SERVICE_BINARY) ./cmd/task-service
 	$(GOBUILD) -o $(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) ./cmd/monitor-service
 	$(GOBUILD) -o $(BUILD_DIR)/$(DRONE_CONTROL_BINARY) ./cmd/drone-control
+	$(GOBUILD) -o $(BUILD_DIR)/$(WEB_SERVER_BINARY) ./cmd/web-server
 
 # Build individual services
 build-api:
@@ -107,7 +109,10 @@ run-all: build
 	$(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) &
 	@echo "Starting Drone Control Service..."
 	$(BUILD_DIR)/$(DRONE_CONTROL_BINARY) &
+	@echo "Starting Web Server..."
+	$(BUILD_DIR)/$(WEB_SERVER_BINARY) &
 	@echo "All services started!"
+	@echo "Web界面可访问: http://localhost:8888"
 
 # Run individual services
 run-api: build-api
@@ -124,6 +129,33 @@ run-monitor: build-monitor
 
 run-drone: build-drone
 	$(BUILD_DIR)/$(DRONE_CONTROL_BINARY)
+
+# Build and run web server
+build-web:
+	@echo "Building Web Server..."
+	@mkdir -p $(BUILD_DIR)
+	$(GOBUILD) -o $(BUILD_DIR)/$(WEB_SERVER_BINARY) ./cmd/web-server
+
+run-web: build-web
+	@echo "Starting Web Server on http://localhost:8888..."
+	$(BUILD_DIR)/$(WEB_SERVER_BINARY)
+
+# Development command - run backend and frontend together
+dev: build
+	@echo "Starting development environment..."
+	@echo "Starting backend services..."
+	docker-compose up -d mysql redis
+	@sleep 3
+	$(BUILD_DIR)/$(API_GATEWAY_BINARY) &
+	$(BUILD_DIR)/$(USER_SERVICE_BINARY) &
+	$(BUILD_DIR)/$(TASK_SERVICE_BINARY) &
+	$(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) &
+	$(BUILD_DIR)/$(DRONE_CONTROL_BINARY) &
+	@sleep 2
+	@echo "Starting Web Server..."
+	$(BUILD_DIR)/$(WEB_SERVER_BINARY) &
+	@echo "Development environment ready!"
+	@echo "访问 http://localhost:8888 查看Web界面"
 
 # Docker commands
 docker-build:
