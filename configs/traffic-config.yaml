@@ -1,0 +1,79 @@
+# 流量控制配置
+traffic_control:
+  # 缓冲配置
+  buffer_size: 10000          # 消息缓冲池大小
+  batch_size: 100             # 批处理大小
+  flush_interval: 50ms        # 刷新间隔
+  
+  # 限流配置
+  max_rate: 1000              # 最大速率 (消息/秒)
+  rate_window: 1s             # 限流窗口
+  
+  # 熔断配置
+  max_failures: 5             # 最大失败次数
+  circuit_timeout: 10s        # 熔断恢复时间
+
+# 消息优先级配置
+message_priorities:
+  urgent:                     # 紧急消息（直接发送）
+    - emergency_landing
+    - collision_alert
+    - system_critical_error
+  
+  high:                      # 高优先级（优先队列）
+    - low_battery_alert
+    - signal_lost_alert
+    - weather_warning
+    - maintenance_required
+  
+  normal:                    # 普通消息（批处理）
+    - heartbeat
+    - status_update
+    - position_update
+    - task_progress
+  
+  low:                       # 低优先级（延迟处理）
+    - log_data
+    - statistics
+    - debug_info
+    - telemetry_data
+
+# Kafka 消息队列配置
+kafka:
+  # 生产者配置
+  producer:
+    batch_size: 16384         # 批次大小
+    linger_ms: 5              # 延迟时间
+    compression_type: "gzip"  # 压缩类型
+    acks: "1"                 # 应答级别
+    retries: 3                # 重试次数
+    
+  # 消费者配置
+  consumer:
+    fetch_min_bytes: 1024     # 最小拉取字节数
+    fetch_max_wait: 500       # 最大等待时间
+    max_poll_records: 500     # 最大轮询记录数
+    
+  # 主题配置
+  topics:
+    drone_events:
+      partitions: 6           # 分区数
+      replication_factor: 1   # 副本因子
+      retention_ms: 604800000 # 7天保留时间
+      
+    task_events:
+      partitions: 3
+      replication_factor: 1
+      retention_ms: 2592000000 # 30天保留时间
+      
+    alert_events:
+      partitions: 2
+      replication_factor: 1
+      retention_ms: 2592000000 # 30天保留时间
+
+# 监控和统计配置
+monitoring:
+  stats_interval: 30s         # 统计收集间隔
+  health_check_interval: 10s  # 健康检查间隔
+  metrics_enabled: true       # 启用指标收集
+  log_level: "info"          # 日志级别

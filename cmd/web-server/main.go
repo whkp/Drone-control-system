@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"drone-control-system/pkg/logger"
+	"drone-control-system/pkg/webrtc"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,6 +17,16 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.Default()
+
+	// 初始化logger
+	appLogger := logger.NewLogger(logger.Config{
+		Level:  "info",
+		Format: "text",
+		Output: "stdout",
+	})
+
+	// 初始化WebRTC流服务器
+	streamServer := webrtc.NewStreamServer(appLogger)
 
 	// 设置静态文件目录
 	r.Static("/static", "./web/static")
@@ -65,6 +78,11 @@ func main() {
 			"service": "web-frontend",
 			"version": "1.0.0",
 		})
+	})
+
+	// WebRTC WebSocket路由
+	r.GET("/ws/webrtc", func(c *gin.Context) {
+		streamServer.HandleDroneStream(c.Writer, c.Request)
 	})
 
 	// API 代理路由（可选，用于开发环境）

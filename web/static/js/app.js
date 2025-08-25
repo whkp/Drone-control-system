@@ -4,6 +4,7 @@ const MONITOR_BASE = 'http://localhost:8083/api/monitoring';
 let authToken = localStorage.getItem('authToken') || '';
 let websocket = null;
 let metricsChart = null;
+let droneWebRTC = null; // WebRTC客户端实例
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -30,6 +31,14 @@ async function initializeApp() {
     
     // 初始化WebSocket连接
     initializeWebSocket();
+    
+    // 初始化WebRTC（等待客户端加载完成）
+    setTimeout(() => {
+        if (window.droneWebRTC) {
+            droneWebRTC = window.droneWebRTC;
+            console.log('WebRTC客户端已连接');
+        }
+    }, 1000);
     
     // 初始化图表
     initializeCharts();
@@ -318,6 +327,9 @@ function renderDrones(drones) {
                 </button>
                 <button class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded text-sm" onclick="sendCommand(${drone.id})" ${drone.status === 'offline' ? 'disabled' : ''}>
                     <i class="fas fa-paper-plane mr-1"></i>控制
+                </button>
+                <button class="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 px-3 rounded text-sm" onclick="startDroneStream(${drone.id})" ${drone.status === 'offline' ? 'disabled' : ''}>
+                    <i class="fas fa-video mr-1"></i>视频
                 </button>
             </div>
         </div>
@@ -911,3 +923,192 @@ function updateMonitoringPanel() {
         </div>
     `;
 }
+
+// ======================= WebRTC 视频流功能 =======================
+
+/**
+ * 启动无人机视频流
+ */
+async function startDroneStream(droneId) {
+    try {
+        if (!droneWebRTC) {
+            console.error('WebRTC客户端未初始化');
+            showNotification('WebRTC客户端未就绪', 'error');
+            return;
+        }
+        
+        console.log(`启动无人机 ${droneId} 的视频流`);
+        
+        // 显示视频流模态框
+        showVideoStreamModal(droneId);
+        
+        // 连接到无人机视频流
+        await droneWebRTC.connectToDrone(droneId.toString());
+        
+        showNotification(`正在连接无人机 ${droneId} 的视频流...`, 'info');
+        
+    } catch (error) {
+        console.error('启动视频流失败:', error);
+        showNotification('启动视频流失败', 'error');
+    }
+}
+
+/**
+ * 显示视频流模态框
+ */
+function showVideoStreamModal(droneId) {
+    const modal = document.getElementById('videoStreamModal');
+    if (!modal) {
+        createVideoStreamModal();
+    }
+    
+    // 更新模态框标题
+    const title = document.getElementById('videoStreamTitle');
+    if (title) {
+        title.textContent = `无人机 ${droneId} - 实时视频流`;
+    }
+    
+    // 显示模态框
+    document.getElementById('videoStreamModal').classList.remove('hidden');
+}
+
+/**
+ * 创建视频流模态框
+ */
+function createVideoStreamModal() {
+    const modalHtml = `
+        <div id="videoStreamModal" class="fixed inset-0 z-50 hidden">
+            <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <div class="bg-white rounded-lg max-w-4xl w-full max-h-full overflow-auto">
+                    <div class="flex justify-between items-center p-6 border-b">
+                        <h2 id="videoStreamTitle" class="text-xl font-semibold">无人机视频流</h2>
+                        <button onclick="closeVideoStreamModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="p-6">
+                        <!-- 连接状态 -->
+                        <div class="mb-4">
+                            <div id="connection-status" class="connection-status disconnected">
+                                连接状态: 未连接
+                            </div>
+                        </div>
+                        
+                        <!-- 视频容器 -->
+                        <div id="video-container" class="bg-black rounded-lg mb-4" style="min-height: 400px;">
+                            <div class="w-full h-full flex items-center justify-center text-white">
+                                <div class="text-center">
+                                    <i class="fas fa-video text-4xl mb-2"></i>
+                                    <p>等待视频流连接...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 控制按钮 -->
+                        <div class="flex space-x-4">
+                            <button onclick="disconnectDroneStream()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+                                <i class="fas fa-stop mr-2"></i>断开连接
+                            </button>
+                            <button onclick="toggleVideoDisplay()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                                <i class="fas fa-eye mr-2"></i>切换显示
+                            </button>
+                            <select id="videoQualitySelect" onchange="changeVideoQuality(this.value)" class="border border-gray-300 rounded px-3 py-2">
+                                <option value="high">高清</option>
+                                <option value="medium" selected>标清</option>
+                                <option value="low">低清</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        .connection-status {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: medium;
+            text-align: center;
+        }
+        .connection-status.connected {
+            background-color: #10b981;
+            color: white;
+        }
+        .connection-status.connecting {
+            background-color: #f59e0b;
+            color: white;
+        }
+        .connection-status.disconnected {
+            background-color: #ef4444;
+            color: white;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+/**
+ * 关闭视频流模态框
+ */
+function closeVideoStreamModal() {
+    document.getElementById('videoStreamModal').classList.add('hidden');
+    
+    // 断开视频流连接
+    if (droneWebRTC) {
+        droneWebRTC.disconnect();
+    }
+}
+
+/**
+ * 断开无人机视频流
+ */
+function disconnectDroneStream() {
+    if (droneWebRTC) {
+        droneWebRTC.disconnect();
+        showNotification('视频流已断开', 'info');
+    }
+}
+
+/**
+ * 切换视频显示
+ */
+function toggleVideoDisplay() {
+    if (droneWebRTC) {
+        droneWebRTC.toggleVideo();
+    }
+}
+
+/**
+ * 更改视频质量
+ */
+function changeVideoQuality(quality) {
+    if (droneWebRTC) {
+        droneWebRTC.setVideoQuality(quality);
+        showNotification(`视频质量已调整为: ${quality}`, 'info');
+    }
+}
+
+// 监听WebRTC状态变化
+window.addEventListener('webrtc-status-change', (event) => {
+    const { status, droneId } = event.detail;
+    console.log(`WebRTC状态变化: ${status}, 无人机: ${droneId}`);
+    
+    // 根据状态显示不同的通知
+    switch (status) {
+        case 'connected':
+            showNotification(`无人机 ${droneId} 视频流已连接`, 'success');
+            break;
+        case 'disconnected':
+            showNotification(`无人机 ${droneId} 视频流已断开`, 'info');
+            break;
+        case 'failed':
+            showNotification(`无人机 ${droneId} 视频流连接失败`, 'error');
+            break;
+    }
+});
