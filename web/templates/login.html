@@ -76,6 +76,16 @@
             
             <!-- 演示模式 -->
             <div class="mt-6 pt-6 border-t border-gray-200">
+                <!-- 测试登录按钮 -->
+                <button 
+                    onclick="testLogin()" 
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center mb-3"
+                >
+                    <i class="fas fa-vial mr-2"></i>
+                    <span>测试登录（无需密码）</span>
+                </button>
+                
+                <!-- 演示模式按钮 -->
                 <button 
                     onclick="enterDemoMode()" 
                     class="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
@@ -84,7 +94,8 @@
                     <span>演示模式</span>
                 </button>
                 <p class="text-xs text-gray-500 text-center mt-2">
-                    无需登录，直接体验系统功能
+                    测试登录：快速进入系统测试功能<br>
+                    演示模式：无需登录，直接体验系统功能
                 </p>
             </div>
         </div>
@@ -146,36 +157,68 @@
             }
         });
         
+        // 测试登录
+        function testLogin() {
+            showSuccess('测试登录成功！正在跳转...');
+            localStorage.setItem('authToken', 'test-token-' + Date.now());
+            localStorage.setItem('currentUser', '测试用户');
+            localStorage.setItem('loginMode', 'test');
+            
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        }
+        
         // 演示模式
         function enterDemoMode() {
+            showSuccess('进入演示模式！正在跳转...');
             localStorage.setItem('authToken', 'demo-token');
             localStorage.setItem('currentUser', '演示用户');
-            window.location.href = '/';
+            localStorage.setItem('loginMode', 'demo');
+            
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
         }
         
         // 错误提示
         function showError(message) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full';
-            errorDiv.innerHTML = `
+            showNotification(message, 'error');
+        }
+        
+        // 成功提示
+        function showSuccess(message) {
+            showNotification(message, 'success');
+        }
+        
+        // 通用提示函数
+        function showNotification(message, type = 'error') {
+            const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+            
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
+            notificationDiv.innerHTML = `
                 <div class="flex items-center">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <i class="fas ${icon} mr-2"></i>
                     <span>${message}</span>
                 </div>
             `;
             
-            document.body.appendChild(errorDiv);
+            document.body.appendChild(notificationDiv);
             
             // 显示动画
             setTimeout(() => {
-                errorDiv.classList.remove('translate-x-full');
+                notificationDiv.classList.remove('translate-x-full');
             }, 100);
             
             // 3秒后隐藏
             setTimeout(() => {
-                errorDiv.classList.add('translate-x-full');
+                notificationDiv.classList.add('translate-x-full');
                 setTimeout(() => {
-                    document.body.removeChild(errorDiv);
+                    if (document.body.contains(notificationDiv)) {
+                        document.body.removeChild(notificationDiv);
+                    }
                 }, 300);
             }, 3000);
         }

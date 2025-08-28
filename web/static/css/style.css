@@ -36,6 +36,21 @@
 .status-offline { background-color: #EF4444; }
 .status-maintenance { background-color: #F59E0B; }
 
+/* 连接状态样式 */
+.status-dot.connected { background-color: #10B981; } /* 绿色 - 已连接 */
+.status-dot.connecting { 
+    background-color: #F59E0B; 
+    animation: pulse 1.5s infinite;
+} /* 橙色+脉冲 - 连接中 */
+.status-dot.disconnected { background-color: #EF4444; } /* 红色 - 断开连接 */
+.status-dot.warning { background-color: #F59E0B; } /* 橙色 - 警告 */
+.status-dot.error { background-color: #EF4444; } /* 红色 - 错误 */
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .grid-cols-1.md\:grid-cols-4 {

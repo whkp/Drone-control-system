@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试页面 - 无人机控制系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .log { background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 3px solid #007bff; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🚁 无人机控制系统 - 调试页面</h1>
+    
+    <div id="status" class="status warning">正在初始化...</div>
+    
+    <h2>测试结果</h2>
+    <div id="tests"></div>
+    
+    <h2>日志</h2>
+    <div id="logs"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api/v1';
+        const MONITOR_BASE = 'http://localhost:50053/api/monitoring';
+        let websocket = null;
+        
+        function log(message, type = 'info') {
+            console.log(message);
+            const logs = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.className = 'log';
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        function updateStatus(message, success = null) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            if (success === true) {
+                status.className = 'status success';
+            } else if (success === false) {
+                status.className = 'status error';
+            } else {
+                status.className = 'status warning';
+            }
+        }
+        
+        function addTest(name, result, details = '') {
+            const tests = document.getElementById('tests');
+            const div = document.createElement('div');
+            div.className = result ? 'status success' : 'status error';
+            div.innerHTML = `<strong>${name}</strong>: ${result ? '✅ 成功' : '❌ 失败'} ${details}`;
+            tests.appendChild(div);
+        }
+        
+        async function runTests() {
+            log('开始运行测试...');
+            updateStatus('运行测试中...');
+            
+            // 测试1: API Gateway
+            try {
+                const response = await axios.get('http://localhost:8080/health');
+                addTest('API Gateway健康检查', true, `状态: ${response.status}`);
+                log('API Gateway测试成功');
+            } catch (error) {
+                addTest('API Gateway健康检查', false, error.message);
+                log('API Gateway测试失败: ' + error.message);
+            }
+            
+            // 测试2: Monitor Service
+            try {
+                const response = await axios.get('http://localhost:50053/health');
+                addTest('监控服务健康检查', true, `状态: ${response.status}`);
+                log('监控服务测试成功');
+            } catch (error) {
+                addTest('监控服务健康检查', false, error.message);
+                log('监控服务测试失败: ' + error.message);
+            }
+            
+            // 测试3: WebSocket连接
+            try {
+                log('尝试WebSocket连接...');
+                websocket = new WebSocket('ws://localhost:50053/ws/monitoring');
+                
+                websocket.onopen = function() {
+                    addTest('WebSocket连接', true, '连接成功');
+                    log('WebSocket连接成功');
+                    updateStatus('所有测试完成 - WebSocket已连接', true);
+                };
+                
+                websocket.onerror = function(error) {
+                    addTest('WebSocket连接', false, 'WebSocket错误');
+                    log('WebSocket连接错误: ' + error);
+                    updateStatus('测试完成 - WebSocket连接失败', false);
+                };
+                
+                websocket.onclose = function() {
+                    log('WebSocket连接已关闭');
+                };
+                
+                // 5秒超时
+                setTimeout(() => {
+                    if (websocket.readyState !== WebSocket.OPEN) {
+                        addTest('WebSocket连接', false, '连接超时');
+                        log('WebSocket连接超时');
+                        updateStatus('测试完成 - WebSocket连接超时', false);
+                    }
+                }, 5000);
+                
+            } catch (error) {
+                addTest('WebSocket连接', false, error.message);
+                log('WebSocket初始化失败: ' + error.message);
+                updateStatus('测试完成 - WebSocket初始化失败', false);
+            }
+        }
+        
+        // 页面加载后运行测试
+        document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>

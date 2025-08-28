@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"drone-control-system/internal/domain"
+	"drone-control-system/internal/mvc/models"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -95,10 +95,10 @@ func NewMySQLConnection(config Config) (*gorm.DB, error) {
 func Migrate(db *gorm.DB) error {
 	// 自动迁移所有表结构
 	err := db.AutoMigrate(
-		&domain.User{},
-		&domain.Drone{},
-		&domain.Task{},
-		&domain.Alert{},
+		&models.User{},
+		&models.Drone{},
+		&models.Task{},
+		&models.Alert{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)

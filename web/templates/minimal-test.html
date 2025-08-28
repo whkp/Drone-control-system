@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最小化连接测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+        .status-container { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0;
+            border: 2px solid #dee2e6;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-dot.connected { background-color: #10B981; }
+        .status-dot.connecting { 
+            background-color: #F59E0B; 
+            animation: pulse 1.5s infinite;
+        }
+        .status-dot.warning { background-color: #F59E0B; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .log {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 连接状态问题诊断</h1>
+    
+    <div class="status-container">
+        <h3>📊 当前状态显示</h3>
+        <div>
+            <span class="status-dot" id="connectionStatus"></span>
+            <span id="connectionText">初始状态</span>
+        </div>
+        <p><strong>预期结果:</strong> 应该从"初始状态"变为"已连接"或"离线模式"</p>
+    </div>
+    
+    <div>
+        <h3>📋 实时日志</h3>
+        <div id="log" class="log">等待初始化...</div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.textContent += `[${timestamp}] ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateConnectionStatus(status, type = 'info') {
+            const statusElement = document.getElementById('connectionStatus');
+            const textElement = document.getElementById('connectionText');
+            
+            log(`🔄 正在更新状态: "${status}" (类型: ${type})`);
+            
+            if (!statusElement) {
+                log('❌ 错误: 找不到 connectionStatus 元素');
+                return false;
+            }
+            
+            if (!textElement) {
+                log('❌ 错误: 找不到 connectionText 元素');
+                return false;
+            }
+            
+            // 更新文本
+            const oldText = textElement.textContent;
+            textElement.textContent = status;
+            log(`📝 文本已更新: "${oldText}" → "${status}"`);
+            
+            // 移除旧样式
+            statusElement.classList.remove('connected', 'connecting', 'warning', 'error', 'disconnected');
+            
+            // 添加新样式
+            let cssClass = '';
+            switch(type) {
+                case 'success':
+                    cssClass = 'connected';
+                    break;
+                case 'warning':
+                    cssClass = 'warning';
+                    break;
+                case 'connecting':
+                    cssClass = 'connecting';
+                    break;
+                default:
+                    cssClass = 'disconnected';
+            }
+            
+            statusElement.classList.add(cssClass);
+            log(`🎨 样式已更新: 添加类 "${cssClass}"`);
+            
+            return true;
+        }
+        
+        async function loadDashboardData() {
+            log('📊 开始加载仪表板数据...');
+            
+            // 模拟数据加载
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            log('✅ 仪表板数据加载成功');
+            return { success: true };
+        }
+        
+        async function initializeWebSocket() {
+            log('🔌 尝试初始化WebSocket连接...');
+            
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    // 模拟连接失败（更真实的情况）
+                    const success = Math.random() > 0.7; // 30% 成功率
+                    
+                    if (success) {
+                        log('✅ WebSocket连接成功');
+                        resolve(true);
+                    } else {
+                        log('❌ WebSocket连接失败');
+                        reject(new Error('WebSocket连接超时'));
+                    }
+                }, 1000);
+            });
+        }
+        
+        // 主初始化函数
+        async function initialize() {
+            log('🚀 开始系统初始化...');
+            log('🔍 检查DOM元素...');
+            
+            const statusEl = document.getElementById('connectionStatus');
+            const textEl = document.getElementById('connectionText');
+            
+            if (!statusEl || !textEl) {
+                log('❌ 致命错误: DOM元素不存在');
+                return;
+            }
+            
+            log('✅ DOM元素检查通过');
+            
+            // 步骤1: 设置初始连接状态
+            log('📡 设置初始连接状态...');
+            updateConnectionStatus('正在初始化...', 'connecting');
+            
+            try {
+                // 步骤2: 加载仪表板数据
+                await loadDashboardData();
+                log('🎯 基础数据加载完成，设置连接成功状态');
+                updateConnectionStatus('已连接', 'success');
+                
+                // 步骤3: 尝试WebSocket连接（可选）
+                try {
+                    await initializeWebSocket();
+                    log('🌐 WebSocket连接成功，保持连接状态');
+                    updateConnectionStatus('实时连接', 'success');
+                } catch (wsError) {
+                    log('⚠️ WebSocket失败，但基础功能可用');
+                    updateConnectionStatus('离线模式', 'warning');
+                }
+                
+            } catch (error) {
+                log('❌ 初始化失败: ' + error.message);
+                updateConnectionStatus('连接失败', 'error');
+            }
+            
+            log('🎉 初始化流程完成');
+        }
+        
+        // DOM加载完成后立即开始
+        document.addEventListener('DOMContentLoaded', function() {
+            log('📋 DOM内容已加载');
+            
+            // 延迟100ms确保页面完全渲染
+            setTimeout(() => {
+                initialize();
+            }, 100);
+        });
+        
+        log('📜 脚本已加载，等待DOM准备...');
+    </script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>状态更新测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status-container { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-dot.connected { background-color: #10B981; }
+        .status-dot.connecting { 
+            background-color: #F59E0B; 
+            animation: pulse 1.5s infinite;
+        }
+        .status-dot.disconnected { background-color: #EF4444; }
+        .status-dot.warning { background-color: #F59E0B; }
+        .status-dot.error { background-color: #EF4444; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .log { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin: 10px 0;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>连接状态更新测试</h1>
+    
+    <div class="status-container">
+        <h3>模拟主页面状态显示</h3>
+        <div class="flex items-center">
+            <span class="status-dot" id="connectionStatus"></span>
+            <span id="connectionText">连接中...</span>
+        </div>
+    </div>
+    
+    <div>
+        <button class="btn" onclick="testStatuses()">测试所有状态</button>
+        <button class="btn" onclick="simulateInitialization()">模拟初始化流程</button>
+        <button class="btn" onclick="clearLog()">清空日志</button>
+    </div>
+    
+    <div id="log" class="log">准备测试...</div>
+
+    <script>
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.textContent += `[${timestamp}] ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        // 更新连接状态 - 复制主页面的逻辑
+        function updateConnectionStatus(status, type = 'info') {
+            const statusElement = document.getElementById('connectionStatus');
+            const textElement = document.getElementById('connectionText');
+            
+            log(`尝试更新状态: ${status} (${type})`);
+            
+            if (!statusElement) {
+                log('❌ 未找到connectionStatus元素');
+                return;
+            }
+            
+            if (!textElement) {
+                log('❌ 未找到connectionText元素');
+                return;
+            }
+            
+            // 更新状态文本
+            textElement.textContent = status;
+            log(`✅ 文本已更新为: ${status}`);
+            
+            // 移除所有状态类
+            statusElement.classList.remove('connected', 'connecting', 'disconnected', 'warning', 'error', 'success');
+            
+            // 根据类型添加相应的类
+            switch(type) {
+                case 'success':
+                    statusElement.classList.add('connected');
+                    log(`✅ 添加样式类: connected`);
+                    break;
+                case 'warning':
+                    statusElement.classList.add('warning');
+                    log(`✅ 添加样式类: warning`);
+                    break;
+                case 'error':
+                    statusElement.classList.add('error');
+                    log(`✅ 添加样式类: error`);
+                    break;
+                case 'connecting':
+                    statusElement.classList.add('connecting');
+                    log(`✅ 添加样式类: connecting`);
+                    break;
+                default:
+                    statusElement.classList.add('disconnected');
+                    log(`✅ 添加样式类: disconnected`);
+            }
+        }
+        
+        function testStatuses() {
+            log('🧪 开始测试所有状态...');
+            
+            const statuses = [
+                ['连接中...', 'connecting'],
+                ['已连接', 'success'],
+                ['离线模式', 'warning'],
+                ['连接失败', 'error'],
+                ['断开连接', 'disconnected']
+            ];
+            
+            let index = 0;
+            function nextStatus() {
+                if (index < statuses.length) {
+                    const [status, type] = statuses[index];
+                    updateConnectionStatus(status, type);
+                    index++;
+                    setTimeout(nextStatus, 1500);
+                } else {
+                    log('🎉 所有状态测试完成');
+                }
+            }
+            
+            nextStatus();
+        }
+        
+        async function simulateInitialization() {
+            log('🚀 模拟主页面初始化流程...');
+            
+            // 步骤1: 初始状态
+            updateConnectionStatus('正在初始化...', 'connecting');
+            await sleep(1000);
+            
+            // 步骤2: 模拟数据加载成功
+            log('📊 模拟仪表板数据加载...');
+            await sleep(800);
+            log('✅ 仪表板数据加载完成');
+            updateConnectionStatus('已连接', 'success');
+            await sleep(500);
+            
+            // 步骤3: 模拟无人机列表加载
+            log('🚁 模拟无人机列表加载...');
+            await sleep(600);
+            log('✅ 无人机列表加载完成');
+            
+            // 步骤4: 模拟WebSocket连接尝试
+            log('🔌 模拟WebSocket连接...');
+            await sleep(1000);
+            
+            // 随机成功或失败
+            if (Math.random() > 0.5) {
+                log('✅ WebSocket连接成功');
+                updateConnectionStatus('实时连接', 'success');
+            } else {
+                log('⚠️ WebSocket连接失败，切换到离线模式');
+                updateConnectionStatus('离线模式', 'warning');
+            }
+            
+            log('🎉 初始化流程完成！');
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // 页面加载时立即测试
+        document.addEventListener('DOMContentLoaded', function() {
+            log('📋 页面已加载，开始测试');
+            log('🔍 检查DOM元素...');
+            
+            const statusEl = document.getElementById('connectionStatus');
+            const textEl = document.getElementById('connectionText');
+            
+            log(`connectionStatus元素: ${statusEl ? '✅ 找到' : '❌ 未找到'}`);
+            log(`connectionText元素: ${textEl ? '✅ 找到' : '❌ 未找到'}`);
+            
+            if (statusEl && textEl) {
+                log('🎯 DOM元素正常，可以开始测试状态更新');
+                setTimeout(() => simulateInitialization(), 1000);
+            } else {
+                log('❌ DOM元素缺失，无法进行状态更新测试');
+            }
+        });
+    </script>
+</body>
+</html>

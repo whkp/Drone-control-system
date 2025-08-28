@@ -8,57 +8,35 @@ GOMOD=$(GOCMD) mod
 GOFMT=gofmt
 
 # Binary names
-API_GATEWAY_BINARY=api-gateway
-USER_SERVICE_BINARY=user-service
-TASK_SERVICE_BINARY=task-service
-MONITOR_SERVICE_BINARY=monitor-service
-DRONE_CONTROL_BINARY=drone-control
-WEB_SERVER_BINARY=web-server
+MVC_SERVER_BINARY=mvc-server
+DB_TOOL_BINARY=db-tool
 
 # Build directory
 BUILD_DIR=build
 
-.PHONY: all build clean test coverage deps fmt vet run-all run-api run-user run-task run-monitor run-drone docker-build docker-up docker-down help
+.PHONY: all build clean test coverage deps fmt vet run docker-build docker-up docker-down kafka-demo help
 
 # Default target
 all: clean deps fmt vet test build
 
-# Build all services
+# Build all binaries
 build:
-	@echo "Building all services..."
+	@echo "Building MVC Server and DB Tool..."
 	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(API_GATEWAY_BINARY) ./cmd/api-gateway
-	$(GOBUILD) -o $(BUILD_DIR)/$(USER_SERVICE_BINARY) ./cmd/user-service
-	$(GOBUILD) -o $(BUILD_DIR)/$(TASK_SERVICE_BINARY) ./cmd/task-service
-	$(GOBUILD) -o $(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) ./cmd/monitor-service
-	$(GOBUILD) -o $(BUILD_DIR)/$(DRONE_CONTROL_BINARY) ./cmd/drone-control
-	$(GOBUILD) -o $(BUILD_DIR)/$(WEB_SERVER_BINARY) ./cmd/web-server
+	$(GOBUILD) -o $(BUILD_DIR)/$(MVC_SERVER_BINARY) ./cmd/mvc-server
+	$(GOBUILD) -o $(BUILD_DIR)/$(DB_TOOL_BINARY) ./cmd/db-tool
 
-# Build individual services
-build-api:
-	@echo "Building API Gateway..."
+# Build MVC server
+build-mvc:
+	@echo "Building MVC Server..."
 	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(API_GATEWAY_BINARY) ./cmd/api-gateway
+	$(GOBUILD) -o $(BUILD_DIR)/$(MVC_SERVER_BINARY) ./cmd/mvc-server
 
-build-user:
-	@echo "Building User Service..."
+# Build DB tool
+build-db-tool:
+	@echo "Building DB Tool..."
 	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(USER_SERVICE_BINARY) ./cmd/user-service
-
-build-task:
-	@echo "Building Task Service..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(TASK_SERVICE_BINARY) ./cmd/task-service
-
-build-monitor:
-	@echo "Building Monitor Service..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) ./cmd/monitor-service
-
-build-drone:
-	@echo "Building Drone Control Service..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(DRONE_CONTROL_BINARY) ./cmd/drone-control
+	$(GOBUILD) -o $(BUILD_DIR)/$(DB_TOOL_BINARY) ./cmd/db-tool
 
 # Clean
 clean:
@@ -93,69 +71,21 @@ vet:
 	@echo "Vetting code..."
 	$(GOCMD) vet ./...
 
-# Run all services locally
-run-all: build
-	@echo "Starting all services..."
-	@echo "Starting Redis and MySQL (make sure Docker is running)..."
+# Run MVC server
+run: build-mvc
+	@echo "Starting database dependencies..."
 	docker-compose up -d mysql redis
 	@sleep 5
-	@echo "Starting API Gateway..."
-	$(BUILD_DIR)/$(API_GATEWAY_BINARY) &
-	@echo "Starting User Service..."
-	$(BUILD_DIR)/$(USER_SERVICE_BINARY) &
-	@echo "Starting Task Service..."
-	$(BUILD_DIR)/$(TASK_SERVICE_BINARY) &
-	@echo "Starting Monitor Service..."
-	$(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) &
-	@echo "Starting Drone Control Service..."
-	$(BUILD_DIR)/$(DRONE_CONTROL_BINARY) &
-	@echo "Starting Web Server..."
-	$(BUILD_DIR)/$(WEB_SERVER_BINARY) &
-	@echo "All services started!"
-	@echo "Web界面可访问: http://localhost:8888"
+	@echo "Starting MVC Server on http://localhost:8080..."
+	$(BUILD_DIR)/$(MVC_SERVER_BINARY)
 
-# Run individual services
-run-api: build-api
-	$(BUILD_DIR)/$(API_GATEWAY_BINARY)
+# Run database tool
+run-db-tool: build-db-tool
+	@echo "Running database tool..."
+	$(BUILD_DIR)/$(DB_TOOL_BINARY)
 
-run-user: build-user
-	$(BUILD_DIR)/$(USER_SERVICE_BINARY)
-
-run-task: build-task
-	$(BUILD_DIR)/$(TASK_SERVICE_BINARY)
-
-run-monitor: build-monitor
-	$(BUILD_DIR)/$(MONITOR_SERVICE_BINARY)
-
-run-drone: build-drone
-	$(BUILD_DIR)/$(DRONE_CONTROL_BINARY)
-
-# Build and run web server
-build-web:
-	@echo "Building Web Server..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(WEB_SERVER_BINARY) ./cmd/web-server
-
-run-web: build-web
-	@echo "Starting Web Server on http://localhost:8888..."
-	$(BUILD_DIR)/$(WEB_SERVER_BINARY)
-
-# Development command - run backend and frontend together
-dev: build
-	@echo "Starting development environment..."
-	@echo "Starting backend services..."
-	docker-compose up -d mysql redis
-	@sleep 3
-	$(BUILD_DIR)/$(API_GATEWAY_BINARY) &
-	$(BUILD_DIR)/$(USER_SERVICE_BINARY) &
-	$(BUILD_DIR)/$(TASK_SERVICE_BINARY) &
-	$(BUILD_DIR)/$(MONITOR_SERVICE_BINARY) &
-	$(BUILD_DIR)/$(DRONE_CONTROL_BINARY) &
-	@sleep 2
-	@echo "Starting Web Server..."
-	$(BUILD_DIR)/$(WEB_SERVER_BINARY) &
-	@echo "Development environment ready!"
-	@echo "访问 http://localhost:8888 查看Web界面"
+# Development environment setup
+dev: run
 
 # Docker commands
 docker-build:
@@ -163,8 +93,8 @@ docker-build:
 	docker-compose build
 
 docker-up:
-	@echo "Starting services with Docker Compose..."
-	docker-compose up -d
+	@echo "Starting database services with Docker Compose..."
+	docker-compose up -d mysql redis
 
 docker-down:
 	@echo "Stopping services..."
@@ -190,27 +120,15 @@ lint:
 	@echo "Running linter..."
 	golangci-lint run
 
-# Generate protocol buffers (if needed)
-protoc:
-	@echo "Generating protobuf files..."
-	protoc --go_out=. --go_opt=paths=source_relative \
-		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
-		api/proto/*.proto
-
-# Database migration (placeholder)
-migrate-up:
+# Database migration using db-tool
+migrate:
 	@echo "Running database migrations..."
-	# Add migration command here
-
-migrate-down:
-	@echo "Rolling back database migrations..."
-	# Add rollback command here
+	$(MAKE) run-db-tool
 
 # Health check
 health:
-	@echo "Checking service health..."
-	@curl -f http://localhost:8080/health || echo "API Gateway not responding"
-	@curl -f http://localhost:50050/health || echo "Drone Control not responding"
+	@echo "Checking MVC server health..."
+	@curl -f http://localhost:8080/health || echo "MVC Server not responding"
 
 # Install
 install: build
@@ -222,27 +140,38 @@ install: build
 build-linux:
 	@echo "Building for Linux..."
 	@mkdir -p $(BUILD_DIR)/linux
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/linux/$(API_GATEWAY_BINARY) ./cmd/api-gateway
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/linux/$(DRONE_CONTROL_BINARY) ./cmd/drone-control
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/linux/$(MVC_SERVER_BINARY) ./cmd/mvc-server
 
 build-windows:
 	@echo "Building for Windows..."
 	@mkdir -p $(BUILD_DIR)/windows
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/windows/$(API_GATEWAY_BINARY).exe ./cmd/api-gateway
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/windows/$(DRONE_CONTROL_BINARY).exe ./cmd/drone-control
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/windows/$(MVC_SERVER_BINARY).exe ./cmd/mvc-server
 
 build-mac:
 	@echo "Building for macOS..."
 	@mkdir -p $(BUILD_DIR)/darwin
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/darwin/$(API_GATEWAY_BINARY) ./cmd/api-gateway
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/darwin/$(DRONE_CONTROL_BINARY) ./cmd/drone-control
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/darwin/$(MVC_SERVER_BINARY) ./cmd/mvc-server
+
+# 🚀 Kafka演示
+kafka-demo:
+	@echo "🚀 启动Kafka集成演示..."
+	@chmod +x scripts/kafka-demo.sh
+	@./scripts/kafka-demo.sh
+
+# 🌐 启动完整系统（包含Kafka）
+run-with-kafka: docker-up build
+	@echo "🌐 启动完整系统（API + Kafka）..."
+	@echo "📡 启动基础设施..."
+	@sleep 5
+	@echo "🚀 启动API服务器..."
+	@./$(BUILD_DIR)/$(MVC_SERVER_BINARY)
 
 # Help
 help:
 	@echo "Available commands:"
-	@echo "  build          - Build all services"
-	@echo "  build-api      - Build API Gateway"
-	@echo "  build-drone    - Build Drone Control Service"
+	@echo "  build          - Build MVC server and db-tool"
+	@echo "  build-mvc      - Build MVC server only"
+	@echo "  build-db-tool  - Build database tool"
 	@echo "  clean          - Clean build files"
 	@echo "  test           - Run tests"
 	@echo "  coverage       - Run tests with coverage"
@@ -250,12 +179,14 @@ help:
 	@echo "  fmt            - Format code"
 	@echo "  vet            - Vet code"
 	@echo "  lint           - Run linter"
-	@echo "  run-all        - Run all services locally"
-	@echo "  run-api        - Run API Gateway"
-	@echo "  run-drone      - Run Drone Control Service"
+	@echo "  run            - Start MVC server with database"
+	@echo "  run-db-tool    - Run database migration tool"
+	@echo "  kafka-demo     - 🚀 启动Kafka集成演示环境"
+	@echo "  run-with-kafka - 🌐 启动完整系统（API + Kafka）"
 	@echo "  docker-build   - Build Docker images"
-	@echo "  docker-up      - Start with Docker Compose"
+	@echo "  docker-up      - Start database services"
 	@echo "  docker-down    - Stop Docker services"
 	@echo "  dev-setup      - Setup development environment"
-	@echo "  health         - Check service health"
+	@echo "  migrate        - Run database migrations"
+	@echo "  health         - Check MVC server health"
 	@echo "  help           - Show this help"

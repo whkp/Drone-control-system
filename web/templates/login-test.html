@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录流程测试 - 无人机控制系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.success { background: #28a745; }
+        .btn.warning { background: #ffc107; color: #212529; }
+        .btn.danger { background: #dc3545; }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .status.danger { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚁 登录流程测试</h1>
+        <p>测试无人机控制系统的登录功能和权限控制</p>
+
+        <div class="status info" id="currentStatus">
+            <strong>当前状态：</strong>检查中...
+        </div>
+
+        <h2>📋 测试步骤</h2>
+
+        <div class="step">
+            <h3>步骤 1: 清除现有登录状态</h3>
+            <p>清除浏览器中的认证信息，模拟未登录状态</p>
+            <button class="btn danger" onclick="clearAuth()">清除认证信息</button>
+        </div>
+
+        <div class="step">
+            <h3>步骤 2: 访问主页面（应该重定向或提示登录）</h3>
+            <p>尝试访问主页面，系统应该检测到未登录状态</p>
+            <a href="/" class="btn" target="_blank">访问主页面</a>
+        </div>
+
+        <div class="step">
+            <h3>步骤 3: 访问登录页面</h3>
+            <p>进入登录页面，选择登录方式</p>
+            <a href="/login" class="btn" target="_blank">打开登录页面</a>
+        </div>
+
+        <div class="step">
+            <h3>步骤 4: 测试登录方式</h3>
+            <p>在登录页面可以选择以下方式：</p>
+            <ul>
+                <li><strong>测试登录</strong>：绿色按钮，无需密码快速登录</li>
+                <li><strong>演示模式</strong>：灰色按钮，演示系统功能</li>
+                <li><strong>正常登录</strong>：输入用户名密码登录（开发中）</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>步骤 5: 验证登录后状态</h3>
+            <p>登录成功后，再次访问主页面应该能正常进入</p>
+            <a href="/" class="btn success" target="_blank">验证主页面访问</a>
+        </div>
+
+        <h2>🔧 快捷测试</h2>
+        <div style="margin: 20px 0;">
+            <button class="btn" onclick="simulateTestLogin()">模拟测试登录</button>
+            <button class="btn warning" onclick="simulateDemoMode()">模拟演示模式</button>
+            <button class="btn danger" onclick="simulateLogout()">模拟退出登录</button>
+        </div>
+
+        <h2>📊 当前登录信息</h2>
+        <div id="authInfo" style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
+            加载中...
+        </div>
+
+        <h2>🌐 系统链接</h2>
+        <div style="margin: 20px 0;">
+            <a href="/" class="btn" target="_blank">主页面</a>
+            <a href="/login" class="btn" target="_blank">登录页面</a>
+            <a href="/minimal-test" class="btn" target="_blank">连接测试</a>
+            <a href="/debug" class="btn" target="_blank">调试页面</a>
+        </div>
+    </div>
+
+    <script>
+        // 更新当前状态
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('currentStatus');
+            statusEl.className = `status ${type}`;
+            statusEl.innerHTML = `<strong>当前状态：</strong>${message}`;
+        }
+
+        // 显示认证信息
+        function displayAuthInfo() {
+            const token = localStorage.getItem('authToken');
+            const user = localStorage.getItem('currentUser');
+            const mode = localStorage.getItem('loginMode');
+            
+            const authInfoEl = document.getElementById('authInfo');
+            
+            if (token) {
+                authInfoEl.innerHTML = `
+                    <h4>✅ 已登录</h4>
+                    <p><strong>用户:</strong> ${user || '未知'}</p>
+                    <p><strong>模式:</strong> ${mode || '未知'}</p>
+                    <p><strong>Token:</strong> ${token.substring(0, 20)}...</p>
+                    <p><strong>登录时间:</strong> ${new Date().toLocaleString()}</p>
+                `;
+                updateStatus('已登录', 'success');
+            } else {
+                authInfoEl.innerHTML = `
+                    <h4>❌ 未登录</h4>
+                    <p>没有找到认证信息</p>
+                `;
+                updateStatus('未登录', 'warning');
+            }
+        }
+
+        // 清除认证信息
+        function clearAuth() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('loginMode');
+            
+            updateStatus('认证信息已清除', 'info');
+            displayAuthInfo();
+            
+            alert('认证信息已清除！现在访问主页面将会看到登录提示。');
+        }
+
+        // 模拟测试登录
+        function simulateTestLogin() {
+            localStorage.setItem('authToken', 'test-token-' + Date.now());
+            localStorage.setItem('currentUser', '测试用户');
+            localStorage.setItem('loginMode', 'test');
+            
+            updateStatus('测试登录已设置', 'success');
+            displayAuthInfo();
+            
+            alert('测试登录已设置！现在访问主页面将能正常进入。');
+        }
+
+        // 模拟演示模式
+        function simulateDemoMode() {
+            localStorage.setItem('authToken', 'demo-token');
+            localStorage.setItem('currentUser', '演示用户');
+            localStorage.setItem('loginMode', 'demo');
+            
+            updateStatus('演示模式已设置', 'success');
+            displayAuthInfo();
+            
+            alert('演示模式已设置！现在访问主页面将能正常进入。');
+        }
+
+        // 模拟退出登录
+        function simulateLogout() {
+            clearAuth();
+            alert('已退出登录！');
+        }
+
+        // 页面加载时显示认证信息
+        document.addEventListener('DOMContentLoaded', function() {
+            displayAuthInfo();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka 集成演示 - 无人机控制系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .demo-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .demo-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .demo-card h3::before {
+            content: "🚀";
+            margin-right: 10px;
+        }
+
+        .demo-card.location h3::before { content: "📍"; }
+        .demo-card.battery h3::before { content: "🔋"; }
+        .demo-card.task h3::before { content: "📋"; }
+        .demo-card.alert h3::before { content: "🚨"; }
+
+        .demo-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .demo-form input, .demo-form select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .demo-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.3s ease;
+        }
+
+        .demo-button:hover {
+            opacity: 0.8;
+        }
+
+        .demo-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .events-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .events-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .status-dot.connected {
+            background: #28a745;
+        }
+
+        .status-dot.connecting {
+            background: #ffc107;
+        }
+
+        .events-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+
+        .event-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        .event-item:last-child {
+            border-bottom: none;
+        }
+
+        .event-time {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .event-type {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .event-data {
+            margin-top: 5px;
+            color: #555;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .clear-button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚁 Kafka 集成演示</h1>
+            <p>实时事件驱动的无人机控制系统</p>
+        </div>
+
+        <!-- 性能指标 -->
+        <div class="performance-metrics">
+            <div class="metric-card">
+                <div class="metric-value" id="eventsCount">0</div>
+                <div class="metric-label">事件总数</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="avgLatency">0ms</div>
+                <div class="metric-label">平均延迟</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="throughput">0/s</div>
+                <div class="metric-label">吞吐量</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="errorRate">0%</div>
+                <div class="metric-label">错误率</div>
+            </div>
+        </div>
+
+        <!-- 演示操作 -->
+        <div class="demo-grid">
+            <!-- 位置更新演示 -->
+            <div class="demo-card location">
+                <h3>位置更新事件</h3>
+                <div class="demo-form">
+                    <input type="number" id="droneId1" placeholder="无人机ID" value="1">
+                    <input type="number" id="latitude" placeholder="纬度" value="40.7128" step="0.0001">
+                    <input type="number" id="longitude" placeholder="经度" value="-74.0060" step="0.0001">
+                    <input type="number" id="altitude" placeholder="海拔" value="100" step="0.1">
+                    <button class="demo-button" onclick="updateLocation()">发送位置更新</button>
+                </div>
+            </div>
+
+            <!-- 电量监控演示 -->
+            <div class="demo-card battery">
+                <h3>电量监控事件</h3>
+                <div class="demo-form">
+                    <input type="number" id="droneId2" placeholder="无人机ID" value="1">
+                    <input type="number" id="battery" placeholder="电量百分比" value="20" min="0" max="100">
+                    <button class="demo-button" onclick="updateBattery()">发送电量更新</button>
+                </div>
+            </div>
+
+            <!-- 任务管理演示 -->
+            <div class="demo-card task">
+                <h3>任务管理事件</h3>
+                <div class="demo-form">
+                    <input type="number" id="taskId" placeholder="任务ID" value="1">
+                    <select id="taskStatus">
+                        <option value="created">已创建</option>
+                        <option value="started">已开始</option>
+                        <option value="progress">进行中</option>
+                        <option value="completed">已完成</option>
+                        <option value="failed">失败</option>
+                    </select>
+                    <button class="demo-button" onclick="updateTaskStatus()">发送任务事件</button>
+                </div>
+            </div>
+
+            <!-- 智能告警演示 -->
+            <div class="demo-card alert">
+                <h3>智能告警系统</h3>
+                <div class="demo-form">
+                    <select id="alertType">
+                        <option value="battery_low">电量低</option>
+                        <option value="zone_violation">禁飞区违规</option>
+                        <option value="communication_loss">通信丢失</option>
+                        <option value="sensor_error">传感器错误</option>
+                    </select>
+                    <button class="demo-button" onclick="triggerAlert()">触发告警</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 实时事件显示 -->
+        <div class="events-panel">
+            <div class="events-header">
+                <h3>🔴 实时事件流</h3>
+                <div class="connection-status">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">未连接</span>
+                    <button class="clear-button" onclick="clearEvents()">清空</button>
+                </div>
+            </div>
+            <div class="events-list" id="eventsList">
+                <div class="event-item">
+                    <div class="event-time">等待连接...</div>
+                    <div class="event-type">系统状态</div>
+                    <div class="event-data">WebSocket连接准备中</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket连接
+        let ws = null;
+        let eventCount = 0;
+        let startTime = Date.now();
+        let latencies = [];
+        let errors = 0;
+
+        // 连接WebSocket
+        function connectWebSocket() {
+            const wsUrl = 'ws://localhost:8080/ws';
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket连接已建立');
+                updateConnectionStatus('connected', '已连接');
+                addEvent('connection', '连接建立', { status: 'connected', url: wsUrl });
+            };
+
+            ws.onclose = (event) => {
+                console.log('WebSocket连接关闭:', event);
+                updateConnectionStatus('disconnected', '连接断开');
+                addEvent('connection', '连接关闭', { code: event.code, reason: event.reason });
+                // 自动重连
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket错误:', error);
+                updateConnectionStatus('disconnected', '连接错误');
+                addEvent('error', 'WebSocket错误', { error: error.toString() });
+                errors++;
+                updateMetrics();
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (e) {
+                    console.error('解析WebSocket消息失败:', e);
+                    addEvent('error', '消息解析失败', { error: e.toString(), data: event.data });
+                }
+            };
+        }
+
+        // 处理WebSocket消息
+        function handleWebSocketMessage(data) {
+            const latency = Date.now() - (data.timestamp ? new Date(data.timestamp).getTime() : Date.now());
+            latencies.push(latency);
+            if (latencies.length > 100) latencies.shift();
+
+            eventCount++;
+            addEvent(data.type, data.type, data.data, latency);
+            updateMetrics();
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(status, text) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            statusDot.className = `status-dot ${status}`;
+            statusText.textContent = text;
+        }
+
+        // 添加事件到列表
+        function addEvent(type, title, data, latency = null) {
+            const eventsList = document.getElementById('eventsList');
+            const eventItem = document.createElement('div');
+            eventItem.className = 'event-item';
+            
+            const time = new Date().toLocaleTimeString();
+            const latencyText = latency ? ` (${latency}ms)` : '';
+            
+            eventItem.innerHTML = `
+                <div class="event-time">${time}${latencyText}</div>
+                <div class="event-type">${title}</div>
+                <div class="event-data">${JSON.stringify(data, null, 2)}</div>
+            `;
+            
+            eventsList.insertBefore(eventItem, eventsList.firstChild);
+            
+            // 限制显示的事件数量
+            while (eventsList.children.length > 50) {
+                eventsList.removeChild(eventsList.lastChild);
+            }
+        }
+
+        // 更新性能指标
+        function updateMetrics() {
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            
+            document.getElementById('eventsCount').textContent = eventCount;
+            
+            const avgLatency = latencies.length > 0 ? 
+                Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+            document.getElementById('avgLatency').textContent = avgLatency + 'ms';
+            
+            const throughput = elapsed > 0 ? (eventCount / elapsed).toFixed(1) : '0';
+            document.getElementById('throughput').textContent = throughput + '/s';
+            
+            const errorRate = eventCount > 0 ? ((errors / eventCount) * 100).toFixed(1) : '0';
+            document.getElementById('errorRate').textContent = errorRate + '%';
+        }
+
+        // 清空事件列表
+        function clearEvents() {
+            document.getElementById('eventsList').innerHTML = '';
+            eventCount = 0;
+            startTime = Date.now();
+            latencies = [];
+            errors = 0;
+            updateMetrics();
+        }
+
+        // 发送HTTP请求的通用函数
+        async function sendRequest(url, method, data) {
+            const startTime = Date.now();
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const latency = Date.now() - startTime;
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addEvent('api_success', `${method} ${url}`, { 
+                        request: data, 
+                        response: result,
+                        status: response.status 
+                    }, latency);
+                } else {
+                    addEvent('api_error', `${method} ${url}`, { 
+                        request: data, 
+                        error: result,
+                        status: response.status 
+                    }, latency);
+                    errors++;
+                }
+            } catch (error) {
+                const latency = Date.now() - startTime;
+                addEvent('api_error', `${method} ${url}`, { 
+                    request: data, 
+                    error: error.toString() 
+                }, latency);
+                errors++;
+            }
+            updateMetrics();
+        }
+
+        // 位置更新
+        function updateLocation() {
+            const droneId = document.getElementById('droneId1').value;
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const altitude = parseFloat(document.getElementById('altitude').value);
+            
+            sendRequest(`/api/v1/drones/${droneId}/position`, 'PUT', {
+                latitude,
+                longitude,
+                altitude,
+                heading: Math.random() * 360
+            });
+
+            // 为下次测试生成随机位置
+            document.getElementById('latitude').value = (latitude + (Math.random() - 0.5) * 0.01).toFixed(4);
+            document.getElementById('longitude').value = (longitude + (Math.random() - 0.5) * 0.01).toFixed(4);
+        }
+
+        // 电量更新
+        function updateBattery() {
+            const droneId = document.getElementById('droneId2').value;
+            const battery = parseInt(document.getElementById('battery').value);
+            
+            sendRequest(`/api/v1/drones/${droneId}/battery`, 'PUT', { battery });
+
+            // 为下次测试减少电量
+            const newBattery = Math.max(0, battery - Math.floor(Math.random() * 10 + 1));
+            document.getElementById('battery').value = newBattery;
+        }
+
+        // 任务状态更新
+        function updateTaskStatus() {
+            const taskId = document.getElementById('taskId').value;
+            const status = document.getElementById('taskStatus').value;
+            
+            // 模拟任务状态更新（这里可以扩展为真实的API调用）
+            addEvent('task_update', '任务状态更新', {
+                task_id: parseInt(taskId),
+                status: status,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // 触发告警
+        function triggerAlert() {
+            const alertType = document.getElementById('alertType').value;
+            
+            // 模拟告警触发（这里可以扩展为真实的API调用）
+            addEvent('alert_created', '告警创建', {
+                alert_id: Math.floor(Math.random() * 1000),
+                type: alertType,
+                level: 'warning',
+                message: `检测到${alertType}情况`,
+                drone_id: 1,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // 页面加载时自动连接
+        window.addEventListener('load', () => {
+            connectWebSocket();
+            updateMetrics();
+        });
+    </script>
+</body>
+</html>
